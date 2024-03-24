@@ -7,3 +7,5 @@ This Shiny app visualizes COVID-19 urban mobility data, providing insights into 
 You can access mobility reports from other countries through the Google Mobility Report for broader data coverage. the data is available in Google Mobility Report CSV [Link](https://github.com/GoogleCloudPlatform/covid-19-open-data/)
 
 [See the app here](https://urbanmobilitycovid19.shinyapps.io/UrbanMobilityCovid19/)
+
+![](https://github.com/hsheikh7/Interactive_Dashboards_2024/blob/main/Shiny%20Interactive%20Dashboard/pics/Shiny_App.jpg)
