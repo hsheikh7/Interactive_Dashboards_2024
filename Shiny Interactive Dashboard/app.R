@@ -8,44 +8,85 @@
 #
 
 library(shiny)
+library(plotly)
+library(DT)
 
-# Define UI for application that draws a histogram
+mobility <- read.csv("data/mobility_data.csv", sep = ';')
+mobility$Date <- as.Date(mobility$Date)
+mobility$Province <- as.factor(mobility$Province)
+
+
 ui <- fluidPage(
-
-    # Application title
-    titlePanel("Old Faithful Geyser Data"),
-
-    # Sidebar with a slider input for number of bins 
-    sidebarLayout(
-        sidebarPanel(
-            sliderInput("bins",
-                        "Number of bins:",
-                        min = 1,
-                        max = 50,
-                        value = 30)
-        ),
-
-        # Show a plot of the generated distribution
-        mainPanel(
-           plotOutput("distPlot")
-        )
+  sidebarLayout(
+    sidebarPanel(
+      h2("COVID-19 Mobility Data"),
+      selectInput(inputId = "dv", label = "Category",
+                  choices = c("Retail_Recreation", "Grocery_Pharmarcy", "Parks", "Transit_Stations", "Workplaces", "Residential"),
+                  selected = "Parks"),
+      selectInput(inputId = "provinces", "Province(s)",
+                  choices = levels(mobility$Province),
+                  multiple = TRUE,
+                  selected = c("Utrecht", "Limburg", "Friesland")),
+      dateRangeInput(inputId = "date", "Date range",
+                     start = min(mobility$Date),
+                     end   = max(mobility$Date)),
+      downloadButton(outputId = "download_data", label = "Download"),
+    ),
+    mainPanel(
+      plotlyOutput(outputId = "plot"), br(),
+      em("Postive and negative percentages indicate an increase and decrease from the baseline period (median value between January 3 and February 6, 2020) respectively."),
+      br(), br(), br(),
+      DT::dataTableOutput(outputId = "table")
     )
+  )
 )
 
-# Define server logic required to draw a histogram
 server <- function(input, output) {
-
-    output$distPlot <- renderPlot({
-        # generate bins based on input$bins from ui.R
-        x    <- faithful[, 2]
-        bins <- seq(min(x), max(x), length.out = input$bins + 1)
-
-        # draw the histogram with the specified number of bins
-        hist(x, breaks = bins, col = 'darkgray', border = 'white',
-             xlab = 'Waiting time to next eruption (in mins)',
-             main = 'Histogram of waiting times')
+  filtered_data <- reactive({
+    subset(mobility,
+           Province %in% input$provinces &
+             Date >= input$date[1] & Date <= input$date[2])})
+  
+  output$plot <- renderPlotly({
+    ggplotly({
+      p <- ggplot(filtered_data(), aes_string(x="Date", y=input$dv, color="Province")) +
+        geom_point(alpha=0.5) + theme(legend.position = "none") +
+        ylab("% change from baseline")
+      
+      p
     })
+  })
+  
+  output$table <- DT::renderDataTable({
+    filtered_data()
+  })
+  
+  output$download_data <- downloadHandler(
+    filename = "download_data.csv",
+    content = function(file) {
+      data <- filtered_data()
+      write.csv(data, file, row.names = FALSE)
+    }
+  )
+  
 }
 
-# Run the application 
 shinyApp(ui = ui, server = server)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
