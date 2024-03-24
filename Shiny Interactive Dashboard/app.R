@@ -4,20 +4,28 @@ library(plotly)
 library(DT)
 
 # Load the dataset
-data <- read.csv("data/mobility_report_countries.csv")
+data <- read.csv("data/Spain_UrbanMobility_Covid19.csv")
+data$date <- as.Date(data$date)
+data$region <- as.factor(data$region)
 
-# Update column names to match the variable names used in the code
-colnames(data) <- c("country", "region", "date", "retail_recreation", "grocery_pharmacy", "parks", "transit_stations", "workplaces", "residential")
+colnames(data) <- c("country", "region", "sub_region", "date", "retail_recreation", "grocery_pharmacy", "parks", "transit_stations", "workplaces", "residential")
 
-# Define UI for application
+# Set default values
+default_country <- "Spain"
+default_region <- "Total"
+
 ui <- fluidPage(
   
-  titlePanel("Mobility Data Visualization Dashboard"),
+  titlePanel("COVID-19 Urban Mobility Data"),
   
   sidebarLayout(
     sidebarPanel(
-      selectInput("country", "Select Country:", choices = unique(data$country)),
-      selectInput("region", "Select Region:", choices = unique(data$region)),
+      selectInput("country", "Select Country:", choices = unique(data$country), selected = default_country),
+      selectInput("region", 
+                  "Select Region:", 
+                  choices = unique(data$region), 
+                  selected = default_region,
+                  multiple = TRUE),
       selectInput("category", "Select Category:", choices = c("retail_recreation", "grocery_pharmacy", "parks", "transit_stations", "workplaces", "residential")),
       dateRangeInput("dates", "Select Date Range:", start = min(data$date), end = max(data$date)),
       downloadButton("downloadData", "Download Data")
@@ -31,22 +39,40 @@ ui <- fluidPage(
 )
 
 # Define server logic
-server <- function(input, output) {
+server <- function(input, output, session) {
+  
+  # Update regions based on selected country
+  observeEvent(input$country, {
+    updateSelectInput(session, "region", choices = unique(data[data$country == input$country, "region"]), selected = default_region)
+  })
   
   filteredData <- reactive({
-    subset(data, country == input$country & region == input$region & date >= input$dates[1] & date <= input$dates[2])
+    subset(data, country == input$country & region %in% input$region & 
+             date >= input$dates[1] & date <= input$dates[2])
   })
   
   output$dataPlot <- renderPlotly({
-    category_selected <- input$category
-    plot_ly(filteredData(), x = ~date, y = ~get(category_selected), type = 'scatter', mode = 'lines') %>%
-      layout(title = paste(category_selected, "trend in", input$country, "-", input$region), xaxis = list(title = "Date"), yaxis = list(title = category_selected))
+    p <- ggplot(filteredData(), aes_string(x = "date", y = input$category, color = "region")) +
+      geom_point(alpha = 0.5) + theme(legend.position = "none") +
+      ylab("% change from baseline")
+    
+    ggplotly(p)
   })
   
-  output$dataTable <- renderDataTable({
+  output$dataTable <- DT::renderDataTable({
     filteredData()
   })
   
+  # Download Data 
+  output$downloadData <- downloadHandler(
+    filename = "download_data.csv",
+    content = function(file) {
+      data <- filteredData()
+      write.csv(data, file, row.names = FALSE)
+    }
+  )
+  
 }
+
 # Run the application
 shinyApp(ui = ui, server = server)
