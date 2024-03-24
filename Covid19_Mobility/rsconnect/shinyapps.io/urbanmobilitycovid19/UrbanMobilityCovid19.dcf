@@ -5,7 +5,7 @@ account: urbanmobilitycovid19
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 11574579
-bundleId: 8411041
+bundleId: 8411910
 url: https://urbanmobilitycovid19.shinyapps.io/UrbanMobilityCovid19/
 version: 1
 asMultiple: FALSE
