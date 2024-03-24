@@ -1,92 +1,52 @@
-#
-# This is a Shiny web application. You can run the application by clicking
-# the 'Run App' button above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    https://shiny.posit.co/
-#
-
+# Load required libraries
 library(shiny)
 library(plotly)
 library(DT)
 
-mobility <- read.csv("data/mobility_data.csv", sep = ';')
-mobility$Date <- as.Date(mobility$Date)
-mobility$Province <- as.factor(mobility$Province)
+# Load the dataset
+data <- read.csv("data/mobility_report_countries.csv")
 
+# Update column names to match the variable names used in the code
+colnames(data) <- c("country", "region", "date", "retail_recreation", "grocery_pharmacy", "parks", "transit_stations", "workplaces", "residential")
 
+# Define UI for application
 ui <- fluidPage(
+  
+  titlePanel("Mobility Data Visualization Dashboard"),
+  
   sidebarLayout(
     sidebarPanel(
-      h2("COVID-19 Mobility Data"),
-      selectInput(inputId = "dv", label = "Category",
-                  choices = c("Retail_Recreation", "Grocery_Pharmarcy", "Parks", "Transit_Stations", "Workplaces", "Residential"),
-                  selected = "Parks"),
-      selectInput(inputId = "provinces", "Province(s)",
-                  choices = levels(mobility$Province),
-                  multiple = TRUE,
-                  selected = c("Utrecht", "Limburg", "Friesland")),
-      dateRangeInput(inputId = "date", "Date range",
-                     start = min(mobility$Date),
-                     end   = max(mobility$Date)),
-      downloadButton(outputId = "download_data", label = "Download"),
+      selectInput("country", "Select Country:", choices = unique(data$country)),
+      selectInput("region", "Select Region:", choices = unique(data$region)),
+      selectInput("category", "Select Category:", choices = c("retail_recreation", "grocery_pharmacy", "parks", "transit_stations", "workplaces", "residential")),
+      dateRangeInput("dates", "Select Date Range:", start = min(data$date), end = max(data$date)),
+      downloadButton("downloadData", "Download Data")
     ),
+    
     mainPanel(
-      plotlyOutput(outputId = "plot"), br(),
-      em("Postive and negative percentages indicate an increase and decrease from the baseline period (median value between January 3 and February 6, 2020) respectively."),
-      br(), br(), br(),
-      DT::dataTableOutput(outputId = "table")
+      plotlyOutput("dataPlot"),
+      dataTableOutput("dataTable")
     )
   )
 )
 
+# Define server logic
 server <- function(input, output) {
-  filtered_data <- reactive({
-    subset(mobility,
-           Province %in% input$provinces &
-             Date >= input$date[1] & Date <= input$date[2])})
   
-  output$plot <- renderPlotly({
-    ggplotly({
-      p <- ggplot(filtered_data(), aes_string(x="Date", y=input$dv, color="Province")) +
-        geom_point(alpha=0.5) + theme(legend.position = "none") +
-        ylab("% change from baseline")
-      
-      p
-    })
+  filteredData <- reactive({
+    subset(data, country == input$country & region == input$region & date >= input$dates[1] & date <= input$dates[2])
   })
   
-  output$table <- DT::renderDataTable({
-    filtered_data()
+  output$dataPlot <- renderPlotly({
+    category_selected <- input$category
+    plot_ly(filteredData(), x = ~date, y = ~get(category_selected), type = 'scatter', mode = 'lines') %>%
+      layout(title = paste(category_selected, "trend in", input$country, "-", input$region), xaxis = list(title = "Date"), yaxis = list(title = category_selected))
   })
   
-  output$download_data <- downloadHandler(
-    filename = "download_data.csv",
-    content = function(file) {
-      data <- filtered_data()
-      write.csv(data, file, row.names = FALSE)
-    }
-  )
+  output$dataTable <- renderDataTable({
+    filteredData()
+  })
   
 }
-
+# Run the application
 shinyApp(ui = ui, server = server)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
